@@ -52,7 +52,7 @@ jobs:
           # --- Build Command ---
           build_command: 'gradlew cleanTest test'
           # --- Formatting Command ---
-          formatting_command: ''
+          formatting_command: 'echo "no format necessary"'
           # --- Max QA Intervention loop attempts ---
           max_qa_attempts: 6
           # --- GitHub Token ---
