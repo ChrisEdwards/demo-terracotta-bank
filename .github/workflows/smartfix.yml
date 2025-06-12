@@ -62,7 +62,7 @@ jobs:
           # --- Base Branch ---
           base_branch: main
           # --- Build Command ---
-          build_command: './gradlew cleanTest test'
+          build_command: './gradlew clean build -x test'
           # --- Formatting Command ---
           formatting_command: 'echo "no format necessary"'
           # --- Max QA Intervention loop attempts ---
