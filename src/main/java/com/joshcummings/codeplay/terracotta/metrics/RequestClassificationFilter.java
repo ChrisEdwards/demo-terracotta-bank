@@ -25,9 +25,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * This filter makes Terracotta Bank vulnerable to CLRF injection because
- * it doesn't validate and encode {@code classification} before including
- * it as a header.
+ * This filter adds the 'X-Terracotta-Classification' header to responses
+ * based on the 'c' request parameter. It sanitizes the header value to
+ * prevent CRLF injection attacks by removing control characters.
  *
  * @author Josh Cummings
  */
@@ -39,15 +39,17 @@ public class RequestClassificationFilter implements Filter {
 
 	@Override
 	public void doFilter(
-					ServletRequest req,
-					ServletResponse resp,
-					FilterChain chain)
+				ServletRequest req,
+				ServletResponse resp,
+				FilterChain chain)
 			throws IOException, ServletException {
 
 		String classification = req.getParameter("c");
-		if ( resp instanceof HttpServletResponse ) {
+		if ( resp instanceof HttpServletResponse && classification != null ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
-			response.setHeader("X-Terracotta-Classification", classification);
+			// Sanitize header value to prevent CRLF injection
+			String sanitizedValue = sanitizeHeaderValue(classification);
+			response.setHeader("X-Terracotta-Classification", sanitizedValue);
 		}
 
 		chain.doFilter(req, resp);
@@ -55,4 +57,19 @@ public class RequestClassificationFilter implements Filter {
 
 	@Override
 	public void destroy() { }
+	
+	/**
+	 * Sanitizes a value to be used in an HTTP header by removing CR, LF, and other control characters
+	 * that could lead to header injection attacks.
+	 * 
+	 * @param value The value to sanitize
+	 * @return A sanitized version of the value safe for use in HTTP headers
+	 */
+	private String sanitizeHeaderValue(String value) {
+		if (value == null) {
+			return null;
+		}
+		// Remove CR, LF, and other control characters that can be used for header injection
+		return value.replaceAll("[\\r\\n\\t\\f\\u000B]|\\x00", "");
+	}
 }
