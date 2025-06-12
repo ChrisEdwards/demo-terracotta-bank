@@ -41,8 +41,18 @@ public class MessageService extends ServiceSupport {
 	}
 	
 	public void addMessage(Message message) {
-		runUpdate("INSERT INTO messages (id, name, email, subject, message) VALUES ('" +
-			message.getId() + "','" + message.getName() + "','" + message.getEmail() + "','" +
-			message.getSubject() + "','" + message.getMessage() + "')");
+		runUpdate("INSERT INTO messages (id, name, email, subject, message) VALUES (?, ?, ?, ?, ?)",
+			ps -> {
+				try {
+					ps.setString(1, message.getId());
+					ps.setString(2, message.getName());
+					ps.setString(3, message.getEmail());
+					ps.setString(4, message.getSubject());
+					ps.setString(5, message.getMessage());
+					return ps;
+				} catch (SQLException e) {
+					throw new IllegalArgumentException(e);
+				}
+			});
 	}
 }
