@@ -50,7 +50,7 @@ jobs:
           # --- Base Branch ---
           base_branch: main
           # --- Build Command ---
-          build_command: 'gradlew cleanTest test'
+          build_command: './gradlew cleanTest test'
           # --- Formatting Command ---
           formatting_command: 'echo "no format necessary"'
           # --- Max QA Intervention loop attempts ---
@@ -81,6 +81,7 @@ jobs:
           aws_bedrock_runtime_endpoint: ${{ vars.AWS_BEDROCK_RUNTIME_ENDPOINT }}
           # --- Agent Configuration ---
           agent_model: ${{ vars.AGENT_MODEL || 'bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0' }}
+          debug_mode: 'true'
 
   handle_pr_merge:
     name: Handle PR Merge
