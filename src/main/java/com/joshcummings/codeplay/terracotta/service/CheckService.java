@@ -23,6 +23,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -54,11 +56,20 @@ public class CheckService extends ServiceSupport {
 	}
 
 	public void updateCheckImagesBulk(String checkNumber, InputStream is) {
+		if (checkNumber == null) {
+			throw new IllegalArgumentException("Check number cannot be null");
+		}
+		
 		try (ZipInputStream zis = new ZipInputStream(is)) {
 			ZipEntry ze;
 			while ( (ze = zis.getNextEntry()) != null ) {
 				try {
-					updateCheckImage(checkNumber + "/" + ze.getName(), zis);
+					// Verify the zip entry name is safe
+					String entryName = ze.getName();
+					if (entryName == null || entryName.contains("..") || entryName.startsWith("/")) {
+						continue; // Skip potentially malicious entries
+					}
+					updateCheckImage(checkNumber + "/" + entryName, zis);
 				} catch ( Exception e ) {
 					e.printStackTrace(); // try to upload the other ones
 				}
@@ -69,30 +80,53 @@ public class CheckService extends ServiceSupport {
 	}
 
 	public void updateCheckImage(String checkNumber, InputStream is) {
+		if (checkNumber == null) {
+			throw new IllegalArgumentException("Check number cannot be null");
+		}
+		
 		try {
-			String location = new URI(CHECK_IMAGE_LOCATION + "/" + checkNumber).normalize().toString();
-			try ( FileOutputStream fos = new FileOutputStream(location) ) {
+			Path basePath = Paths.get(CHECK_IMAGE_LOCATION).toAbsolutePath();
+			Path targetPath = basePath.resolve(checkNumber).normalize();
+			
+			// Verify the path is still within the base directory
+			if (!targetPath.startsWith(basePath)) {
+				throw new IllegalArgumentException("Invalid check number path");
+			}
+			
+			try (FileOutputStream fos = new FileOutputStream(targetPath.toFile())) {
 				byte[] b = new byte[1024];
 				int read;
-				while ( ( read = is.read(b) ) != -1 ) {
+				while ((read = is.read(b)) != -1) {
 					fos.write(b, 0, read);
 				}
-			} catch ( IOException e ) {
+			} catch (IOException e) {
 				throw new IllegalArgumentException(e);
 			}
-		} catch ( URISyntaxException e ) {
+		} catch (Exception e) {
 			throw new IllegalArgumentException(e);
 		}
 	}
 	
 	public void findCheckImage(String checkNumber, OutputStream os) {
-		try ( FileInputStream fis = new FileInputStream(CHECK_IMAGE_LOCATION + "/" + checkNumber) ) {
+		if (checkNumber == null) {
+			throw new IllegalArgumentException("Check number cannot be null");
+		}
+		
+		Path basePath = Paths.get(CHECK_IMAGE_LOCATION).toAbsolutePath();
+		Path targetPath = basePath.resolve(checkNumber).normalize();
+		
+		// Verify the path is still within the base directory
+		if (!targetPath.startsWith(basePath)) {
+			throw new IllegalArgumentException("Invalid check number path");
+		}
+		
+		try (FileInputStream fis = new FileInputStream(targetPath.toFile())) {
 			byte[] b = new byte[1024];
 			int read;
-			while ( ( read = fis.read(b) ) != -1 ) {
+			while ((read = fis.read(b)) != -1) {
 				os.write(b, 0, read);
 			}
-		} catch ( IOException e ) {
+		} catch (IOException e) {
 			throw new IllegalArgumentException(e);
 		}
 	}
