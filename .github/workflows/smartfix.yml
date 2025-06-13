@@ -55,7 +55,7 @@ jobs:
 
           
       - name: Run Contrast AI SmartFix - Generate Fixes Action
-        uses: Contrast-Security-OSS/contrast-ai-smartfix-action@main
+        uses: Contrast-Security-OSS/contrast-ai-smartfix-action@TS-39574
         with:
           # --- Max Open PRs ---
           max_open_prs: 5
