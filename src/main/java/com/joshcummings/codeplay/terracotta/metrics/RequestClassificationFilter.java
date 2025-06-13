@@ -45,9 +45,13 @@ public class RequestClassificationFilter implements Filter {
 			throws IOException, ServletException {
 
 		String classification = req.getParameter("c");
-		if ( resp instanceof HttpServletResponse ) {
+		if ( resp instanceof HttpServletResponse && classification != null ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
-			response.setHeader("X-Terracotta-Classification", classification);
+			// Sanitize the value to prevent header injection
+			String sanitized = sanitizeHeaderValue(classification);
+			if (sanitized != null && !sanitized.isEmpty()) {
+				response.setHeader("X-Terracotta-Classification", sanitized);
+			}
 		}
 
 		chain.doFilter(req, resp);
@@ -55,4 +59,19 @@ public class RequestClassificationFilter implements Filter {
 
 	@Override
 	public void destroy() { }
+	
+	/**
+	 * Sanitizes a header value by removing CR, LF and other control characters
+	 * that could be used for header injection attacks.
+	 * 
+	 * @param value the input value to sanitize
+	 * @return a sanitized value safe for use in HTTP headers
+	 */
+	private String sanitizeHeaderValue(String value) {
+		if (value == null) {
+			return null;
+		}
+		// Remove CR, LF and other control characters that could be used for header injection
+		return value.replaceAll("[\\r\\n\\t\\f\\v\\0\\s]*", "");
+	}
 }
