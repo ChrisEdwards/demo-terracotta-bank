@@ -22,9 +22,8 @@ import com.joshcummings.codeplay.terracotta.model.Message;
 import org.springframework.stereotype.Service;
 
 /**
- * This class makes Terracotta Bank vulnerable to SQL injection
- * attacks because it concatenates queries instead of using
- * bind variables.
+ * This class handles message operations for Terracotta Bank.
+ * It uses parameterized queries with bind variables to prevent SQL injection attacks.
  *
  * @author Josh Cummings
  */
@@ -41,8 +40,14 @@ public class MessageService extends ServiceSupport {
 	}
 	
 	public void addMessage(Message message) {
-		runUpdate("INSERT INTO messages (id, name, email, subject, message) VALUES ('" +
-			message.getId() + "','" + message.getName() + "','" + message.getEmail() + "','" +
-			message.getSubject() + "','" + message.getMessage() + "')");
+		runUpdate("INSERT INTO messages (id, name, email, subject, message) VALUES (?, ?, ?, ?, ?)", 
+			ps -> {
+				ps.setString(1, message.getId());
+				ps.setString(2, message.getName());
+				ps.setString(3, message.getEmail());
+				ps.setString(4, message.getSubject());
+				ps.setString(5, message.getMessage());
+				return ps;
+			});
 	}
 }
