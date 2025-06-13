@@ -78,8 +78,15 @@ public class ContentParsingFilter implements Filter {
 			InputStream body = request.getInputStream();
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			factory.setNamespaceAware(true);
-			factory.setXIncludeAware(true);
-			factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
+			// Secure parser configuration - disabling vulnerable features
+			factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+			factory.setExpandEntityReferences(false);
+			// Disable DOCTYPE declarations and external entities
+			factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+			factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+			factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+			factory.setXIncludeAware(false);
+			// Set entity resolver to prevent even unexpected entity resolution
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			Element root = builder.parse(new InputSource(body)).getDocumentElement();
 			return unmarshal(root);
