@@ -23,6 +23,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.InvalidPathException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -70,8 +73,27 @@ public class CheckService extends ServiceSupport {
 
 	public void updateCheckImage(String checkNumber, InputStream is) {
 		try {
-			String location = new URI(CHECK_IMAGE_LOCATION + "/" + checkNumber).normalize().toString();
-			try ( FileOutputStream fos = new FileOutputStream(location) ) {
+			if (checkNumber == null || checkNumber.isEmpty()) {
+				throw new IllegalArgumentException("Check number cannot be empty");
+			}
+			
+			// Create base and target paths
+			Path basePath = Paths.get(CHECK_IMAGE_LOCATION).toAbsolutePath().normalize();
+			Path filePath = basePath.resolve(checkNumber).normalize();
+			
+			// Security check - make sure the resolved file is still under the base directory
+			if (!filePath.startsWith(basePath)) {
+				throw new IllegalArgumentException("Invalid check number: " + checkNumber);
+			}
+			
+			// Create parent directories if they don't exist
+			File parentDir = filePath.getParent().toFile();
+			if (!parentDir.exists()) {
+				parentDir.mkdirs();
+			}
+			
+			// Once validated, write to the file
+			try ( FileOutputStream fos = new FileOutputStream(filePath.toFile()) ) {
 				byte[] b = new byte[1024];
 				int read;
 				while ( ( read = is.read(b) ) != -1 ) {
@@ -80,20 +102,38 @@ public class CheckService extends ServiceSupport {
 			} catch ( IOException e ) {
 				throw new IllegalArgumentException(e);
 			}
-		} catch ( URISyntaxException e ) {
-			throw new IllegalArgumentException(e);
+		} catch (InvalidPathException e) {
+			throw new IllegalArgumentException("Invalid check number format", e);
 		}
 	}
 	
 	public void findCheckImage(String checkNumber, OutputStream os) {
-		try ( FileInputStream fis = new FileInputStream(CHECK_IMAGE_LOCATION + "/" + checkNumber) ) {
-			byte[] b = new byte[1024];
-			int read;
-			while ( ( read = fis.read(b) ) != -1 ) {
-				os.write(b, 0, read);
+		try {
+			if (checkNumber == null || checkNumber.isEmpty()) {
+				throw new IllegalArgumentException("Check number cannot be empty");
 			}
-		} catch ( IOException e ) {
-			throw new IllegalArgumentException(e);
+			
+			// Create base and target paths
+			Path basePath = Paths.get(CHECK_IMAGE_LOCATION).toAbsolutePath().normalize();
+			Path filePath = basePath.resolve(checkNumber).normalize();
+			
+			// Security check - make sure the resolved file is still under the base directory
+			if (!filePath.startsWith(basePath)) {
+				throw new IllegalArgumentException("Invalid check number: " + checkNumber);
+			}
+			
+			// Once validated, read the file
+			try ( FileInputStream fis = new FileInputStream(filePath.toFile()) ) {
+				byte[] b = new byte[1024];
+				int read;
+				while ( ( read = fis.read(b) ) != -1 ) {
+					os.write(b, 0, read);
+				}
+			} catch ( IOException e ) {
+				throw new IllegalArgumentException(e);
+			}
+		} catch (InvalidPathException e) {
+			throw new IllegalArgumentException("Invalid check number format", e);
 		}
 	}
 }
