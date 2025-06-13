@@ -70,29 +70,56 @@ public class CheckService extends ServiceSupport {
 
 	public void updateCheckImage(String checkNumber, InputStream is) {
 		try {
-			String location = new URI(CHECK_IMAGE_LOCATION + "/" + checkNumber).normalize().toString();
-			try ( FileOutputStream fos = new FileOutputStream(location) ) {
+			File checkImageDir = new File(CHECK_IMAGE_LOCATION).getCanonicalFile();
+			File checkImage = new File(checkImageDir, checkNumber).getCanonicalFile();
+			
+			// Ensure the file is within the allowed directory
+			if (!checkImage.getCanonicalPath().startsWith(checkImageDir.getCanonicalPath() + File.separator)) {
+				throw new IllegalArgumentException("Invalid check number");
+			}
+			
+			// Ensure parent directories exist
+			if (!checkImage.getParentFile().exists()) {
+				checkImage.getParentFile().mkdirs();
+			}
+			
+			try (FileOutputStream fos = new FileOutputStream(checkImage)) {
 				byte[] b = new byte[1024];
 				int read;
-				while ( ( read = is.read(b) ) != -1 ) {
+				while ((read = is.read(b)) != -1) {
 					fos.write(b, 0, read);
 				}
-			} catch ( IOException e ) {
+			} catch (IOException e) {
 				throw new IllegalArgumentException(e);
 			}
-		} catch ( URISyntaxException e ) {
+		} catch (IOException e) {
 			throw new IllegalArgumentException(e);
 		}
 	}
 	
 	public void findCheckImage(String checkNumber, OutputStream os) {
-		try ( FileInputStream fis = new FileInputStream(CHECK_IMAGE_LOCATION + "/" + checkNumber) ) {
-			byte[] b = new byte[1024];
-			int read;
-			while ( ( read = fis.read(b) ) != -1 ) {
-				os.write(b, 0, read);
+		try {
+			File checkImageDir = new File(CHECK_IMAGE_LOCATION).getCanonicalFile();
+			File checkImage = new File(checkImageDir, checkNumber).getCanonicalFile();
+			
+			// Ensure the file is within the allowed directory
+			if (!checkImage.getCanonicalPath().startsWith(checkImageDir.getCanonicalPath() + File.separator)) {
+				throw new IllegalArgumentException("Invalid check number");
 			}
-		} catch ( IOException e ) {
+			
+			// Ensure the file exists
+			if (!checkImage.exists()) {
+				throw new IllegalArgumentException("Check image not found");
+			}
+			
+			try (FileInputStream fis = new FileInputStream(checkImage)) {
+				byte[] b = new byte[1024];
+				int read;
+				while ((read = fis.read(b)) != -1) {
+					os.write(b, 0, read);
+				}
+			}
+		} catch (IOException e) {
 			throw new IllegalArgumentException(e);
 		}
 	}
