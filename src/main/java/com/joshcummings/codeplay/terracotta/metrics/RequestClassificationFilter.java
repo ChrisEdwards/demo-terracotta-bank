@@ -45,9 +45,12 @@ public class RequestClassificationFilter implements Filter {
 			throws IOException, ServletException {
 
 		String classification = req.getParameter("c");
-		if ( resp instanceof HttpServletResponse ) {
+		if ( resp instanceof HttpServletResponse && classification != null ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
-			response.setHeader("X-Terracotta-Classification", classification);
+			// Validate that the classification doesn't contain header injection characters (CR, LF)
+			if (!classification.contains("\r") && !classification.contains("\n")) {
+				response.setHeader("X-Terracotta-Classification", classification);
+			}
 		}
 
 		chain.doFilter(req, resp);
