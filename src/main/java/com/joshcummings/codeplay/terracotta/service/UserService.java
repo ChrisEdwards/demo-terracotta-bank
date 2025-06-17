@@ -43,8 +43,15 @@ public class UserService extends ServiceSupport {
 	}
 
 	public User findByUsernameAndPassword(String username, String password) {
-		Set<User> users = runQuery("SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'", (rs) ->
-			new User(rs.getString(1), rs.getString(4), rs.getString(5),
+		final String sanitizedUsername = sanitizeUsername(username);
+		final String sanitizedPassword = sanitizePassword(password);
+		Set<User> users = runQuery("SELECT * FROM users WHERE username = ? AND password = ?", 
+			(ps) -> {
+				ps.setString(1, sanitizedUsername);
+				ps.setString(2, sanitizedPassword);
+				return ps;
+			},
+			(rs) -> new User(rs.getString(1), rs.getString(4), rs.getString(5),
 				rs.getString(2), rs.getString(3), rs.getBoolean(6)));
 		return users.isEmpty() ? null : users.iterator().next();
 	}
@@ -64,5 +71,26 @@ public class UserService extends ServiceSupport {
 
 	public void removeUser(String username) {
 		runUpdate("DELETE FROM users WHERE username = '" + username + "'");
+	}
+
+	private String sanitizeUsername(String username) {
+		if (username == null || username.trim().isEmpty()) {
+			return "";
+		}
+		// Remove any potential SQL injection characters
+		username = username.trim();
+		// Allow only alphanumeric characters, dots, underscores, and hyphens
+		if (!username.matches("^[a-zA-Z0-9._-]+$")) {
+			return "";
+		}
+		return username;
+	}
+
+	private String sanitizePassword(String password) {
+		if (password == null) {
+			return "";
+		}
+		// Basic sanitization - remove control characters but allow most printable chars
+		return password.replaceAll("[\\p{Cntrl}]", "");
 	}
 }
