@@ -54,11 +54,23 @@ public class CheckService extends ServiceSupport {
 	}
 
 	public void updateCheckImagesBulk(String checkNumber, InputStream is) {
+		// Validate the check number to prevent path traversal
+		if (!isValidCheckNumber(checkNumber)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+		
 		try (ZipInputStream zis = new ZipInputStream(is)) {
 			ZipEntry ze;
 			while ( (ze = zis.getNextEntry()) != null ) {
 				try {
-					updateCheckImage(checkNumber + "/" + ze.getName(), zis);
+					// Make sure the ZIP entry name is safe
+					String entryName = ze.getName();
+					if (entryName.contains("../") || entryName.contains("..\\") || 
+						entryName.startsWith("/") || entryName.startsWith("\\")) {
+						throw new IllegalArgumentException("Invalid ZIP entry path");
+					}
+					
+					updateCheckImage(checkNumber + "/" + entryName, zis);
 				} catch ( Exception e ) {
 					e.printStackTrace(); // try to upload the other ones
 				}
@@ -69,8 +81,28 @@ public class CheckService extends ServiceSupport {
 	}
 
 	public void updateCheckImage(String checkNumber, InputStream is) {
+		// Extract just the filename portion for validation if path includes a directory
+		String filenameToCheck = checkNumber;
+		if (checkNumber.contains("/")) {
+			String[] parts = checkNumber.split("/");
+			filenameToCheck = parts[0]; // Validate the first part which is the check number
+		}
+		
+		// Validate input to prevent path traversal
+		if (!isValidCheckNumber(filenameToCheck)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+		
 		try {
 			String location = new URI(CHECK_IMAGE_LOCATION + "/" + checkNumber).normalize().toString();
+			
+			// Additional safety check - ensure the normalized path is still within the intended directory
+			File targetFile = new File(location);
+			File baseDir = new File(CHECK_IMAGE_LOCATION).getCanonicalFile();
+			if (!targetFile.getCanonicalPath().startsWith(baseDir.getCanonicalPath())) {
+				throw new IllegalArgumentException("Path traversal attempt detected");
+			}
+			
 			try ( FileOutputStream fos = new FileOutputStream(location) ) {
 				byte[] b = new byte[1024];
 				int read;
@@ -80,12 +112,28 @@ public class CheckService extends ServiceSupport {
 			} catch ( IOException e ) {
 				throw new IllegalArgumentException(e);
 			}
-		} catch ( URISyntaxException e ) {
+		} catch ( URISyntaxException | IOException e ) {
 			throw new IllegalArgumentException(e);
 		}
 	}
 	
+	/**
+	 * Validates that the given check number is safe to use in file paths
+	 * 
+	 * @param checkNumber the check number to validate
+	 * @return true if the check number is valid, false otherwise
+	 */
+	public boolean isValidCheckNumber(String checkNumber) {
+		// Allow only alphanumeric characters and basic symbols - no path traversal
+		return checkNumber != null && checkNumber.matches("^[a-zA-Z0-9-_]+$");
+	}
+
 	public void findCheckImage(String checkNumber, OutputStream os) {
+		// Validate input to prevent path traversal
+		if (!isValidCheckNumber(checkNumber)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+		
 		try ( FileInputStream fis = new FileInputStream(CHECK_IMAGE_LOCATION + "/" + checkNumber) ) {
 			byte[] b = new byte[1024];
 			int read;
