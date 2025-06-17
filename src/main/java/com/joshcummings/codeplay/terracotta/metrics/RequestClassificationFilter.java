@@ -23,6 +23,9 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * This filter makes Terracotta Bank vulnerable to CLRF injection because
@@ -33,6 +36,24 @@ import java.io.IOException;
  */
 //@WebFilter(value="/*", dispatcherTypes={ DispatcherType.REQUEST, DispatcherType.FORWARD, DispatcherType.ERROR })
 public class RequestClassificationFilter implements Filter {
+	
+	// Define allowed classifications
+	private static final Set<String> ALLOWED_CLASSIFICATIONS = new HashSet<>(Arrays.asList(
+		"account", "admin", "transfer", "message", "public"
+	));
+	
+	/**
+	 * Validates that the classification parameter contains only allowed values.
+	 * 
+	 * @param classification The user-provided classification string
+	 * @return The validated classification or a default value if invalid
+	 */
+	private String validateClassification(String classification) {
+		if (classification != null && ALLOWED_CLASSIFICATIONS.contains(classification)) {
+			return classification;
+		}
+		return "unclassified"; // Default value if invalid or null
+	}
 
 	@Override
 	public void init(FilterConfig filterConfig) { }
@@ -47,7 +68,7 @@ public class RequestClassificationFilter implements Filter {
 		String classification = req.getParameter("c");
 		if ( resp instanceof HttpServletResponse ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
-			response.setHeader("X-Terracotta-Classification", classification);
+			response.setHeader("X-Terracotta-Classification", validateClassification(classification));
 		}
 
 		chain.doFilter(req, resp);
