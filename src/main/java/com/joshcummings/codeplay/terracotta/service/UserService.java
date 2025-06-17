@@ -18,6 +18,7 @@ package com.joshcummings.codeplay.terracotta.service;
 import com.joshcummings.codeplay.terracotta.model.User;
 import org.springframework.stereotype.Service;
 
+import java.sql.SQLException;
 import java.util.Set;
 
 /**
@@ -36,10 +37,38 @@ public class UserService extends ServiceSupport {
 	}
 
 	public User findByUsername(String username) {
-		Set<User> users = runQuery("SELECT * FROM users WHERE username = '" + username + "'", (rs) ->
-			new User(rs.getString(1), rs.getString(4), rs.getString(5),
+		// Validate input to prevent SQL injection
+		if (username == null) {
+			return null;
+		}
+		Set<User> users = runQuery("SELECT * FROM users WHERE username = ?", 
+			ps -> {
+				try {
+					ps.setString(1, sanitizeUsernameInput(username));
+					return ps;
+				} catch (SQLException e) {
+					throw new IllegalArgumentException("Failed to set parameter", e);
+				}
+			},
+			(rs) -> new User(rs.getString(1), rs.getString(4), rs.getString(5),
 				rs.getString(2), rs.getString(3), rs.getBoolean(6)));
 		return users.isEmpty() ? null : users.iterator().next();
+	}
+
+	/**
+	 * Sanitizes username input to prevent SQL injection attacks.
+	 * This method validates and cleans the username input.
+	 * @param username the raw username input
+	 * @return sanitized username
+	 */
+	private String sanitizeUsernameInput(String username) {
+		if (username == null || username.trim().isEmpty()) {
+			return "";
+		}
+		// Remove any potentially dangerous characters and limit length
+		String sanitized = username.trim().replaceAll("[^a-zA-Z0-9@._-]", "");
+		// Limit username length to prevent buffer overflow attacks
+		return sanitized.length() > 100 ? sanitized.substring(0, 100) : sanitized;
 	}
 
 	public User findByUsernameAndPassword(String username, String password) {
