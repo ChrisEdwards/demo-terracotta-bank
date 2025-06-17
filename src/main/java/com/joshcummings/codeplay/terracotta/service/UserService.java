@@ -30,9 +30,8 @@ import java.util.Set;
 @Service
 public class UserService extends ServiceSupport {
 	public void addUser(User user) {
-		runUpdate("INSERT INTO users (id, username, password, name, email)"
-				+ " VALUES ('" + user.getId() + "','" + user.getUsername() + 
-				"','" + user.getPassword() + "','" + user.getName() + "','" + user.getEmail() + "')");
+		runParameterizedUpdate("INSERT INTO users (id, username, password, name, email) VALUES (?, ?, ?, ?, ?)",
+				user.getId(), user.getUsername(), user.getPassword(), user.getName(), user.getEmail());
 	}
 
 	public User findByUsername(String username) {
@@ -55,7 +54,7 @@ public class UserService extends ServiceSupport {
 
 	public void updateUser(User user) {
 		runUpdate("UPDATE users SET name = '" + user.getName() + "', email = '" + user.getEmail() + "' "+
-					"WHERE id = '" + user.getId() + "'");
+				"WHERE id = '" + user.getId() + "'");
 	}
 
 	public void updateUserPassword(User user) {

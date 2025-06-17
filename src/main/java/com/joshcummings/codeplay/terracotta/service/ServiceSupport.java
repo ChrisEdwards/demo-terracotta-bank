@@ -67,6 +67,29 @@ public abstract class ServiceSupport {
 			throw new IllegalArgumentException(e);
 		}
 	}
+	
+	/**
+	 * Executes a parameterized SQL update statement with the provided parameters.
+	 * This method prevents SQL injection by properly using PreparedStatement parameter binding.
+	 *
+	 * @param sql the SQL statement with ? placeholders for parameters
+	 * @param params the parameter values to be set in the prepared statement
+	 * @return the number of rows affected by the update
+	 */
+	public int runParameterizedUpdate(String sql, Object... params) {
+		try (Connection conn = DriverManager.getConnection(DATABASE_URL, "user", "password");
+			 PreparedStatement ps = conn.prepareStatement(sql)) {
+			
+			// Set parameters on the PreparedStatement
+			for (int i = 0; i < params.length; i++) {
+				ps.setObject(i + 1, params[i]);
+			}
+			
+			return ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new IllegalArgumentException(e);
+		}
+	}
 
 	@FunctionalInterface
 	public interface Preparer {
