@@ -54,11 +54,20 @@ public class CheckService extends ServiceSupport {
 	}
 
 	public void updateCheckImagesBulk(String checkNumber, InputStream is) {
+		if (!isValidCheckNumber(checkNumber)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+		
 		try (ZipInputStream zis = new ZipInputStream(is)) {
 			ZipEntry ze;
 			while ( (ze = zis.getNextEntry()) != null ) {
 				try {
-					updateCheckImage(checkNumber + "/" + ze.getName(), zis);
+					// Validate the entry name
+					String entryName = ze.getName();
+					if (entryName.contains("..") || entryName.startsWith("/") || entryName.startsWith("\\")) {
+						throw new IllegalArgumentException("Invalid zip entry name");
+					}
+					updateCheckImage(checkNumber + "/" + entryName, zis);
 				} catch ( Exception e ) {
 					e.printStackTrace(); // try to upload the other ones
 				}
@@ -69,6 +78,10 @@ public class CheckService extends ServiceSupport {
 	}
 
 	public void updateCheckImage(String checkNumber, InputStream is) {
+		if (!isValidCheckNumber(checkNumber)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+		
 		try {
 			String location = new URI(CHECK_IMAGE_LOCATION + "/" + checkNumber).normalize().toString();
 			try ( FileOutputStream fos = new FileOutputStream(location) ) {
@@ -85,7 +98,32 @@ public class CheckService extends ServiceSupport {
 		}
 	}
 	
+	/**
+	 * Validates a check number to prevent path traversal attacks.
+	 * This method ensures the file path does not navigate outside the intended directory.
+	 *
+	 * @param checkNumber the check number to validate
+	 * @return true if the check number is valid, false otherwise
+	 */
+	private boolean isValidCheckNumber(String checkNumber) {
+		if (checkNumber == null || checkNumber.isEmpty()) {
+			return false;
+		}
+		
+		// Prevent path traversal by checking for directory traversal characters
+		if (checkNumber.contains("..") || checkNumber.contains("/") || checkNumber.contains("\\")) {
+			return false;
+		}
+		
+		// Only allow alphanumeric characters and some basic punctuation
+		return checkNumber.matches("^[a-zA-Z0-9_\\-]+$");
+	}
+	
 	public void findCheckImage(String checkNumber, OutputStream os) {
+		if (!isValidCheckNumber(checkNumber)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+		
 		try ( FileInputStream fis = new FileInputStream(CHECK_IMAGE_LOCATION + "/" + checkNumber) ) {
 			byte[] b = new byte[1024];
 			int read;
