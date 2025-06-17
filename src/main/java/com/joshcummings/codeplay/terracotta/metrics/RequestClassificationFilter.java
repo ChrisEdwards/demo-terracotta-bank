@@ -45,12 +45,28 @@ public class RequestClassificationFilter implements Filter {
 			throws IOException, ServletException {
 
 		String classification = req.getParameter("c");
+		classification = validateHeaderValue(classification);
 		if ( resp instanceof HttpServletResponse ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
 			response.setHeader("X-Terracotta-Classification", classification);
 		}
 
 		chain.doFilter(req, resp);
+	}
+	
+	/**
+	 * Validates header value by removing potentially dangerous characters
+	 * that could lead to header injection attacks.
+	 * 
+	 * @param value the value to validate
+	 * @return sanitized value safe for use in HTTP headers
+	 */
+	private String validateHeaderValue(String value) {
+		if (value == null) {
+			return null;
+		}
+		// Remove CR, LF and other control characters that could lead to header injection
+		return value.replaceAll("[\r\n\t\f]|[\u0000-\u001F\u007F-\u009F]", "");
 	}
 
 	@Override
