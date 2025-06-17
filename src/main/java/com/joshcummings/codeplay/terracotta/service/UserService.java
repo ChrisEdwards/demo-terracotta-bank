@@ -21,29 +21,40 @@ import org.springframework.stereotype.Service;
 import java.util.Set;
 
 /**
- * This class makes Terracotta Bank vulnerable to SQL injection
- * attacks because it concatenates queries instead of using
- * bind variables.
- *
  * @author Josh Cummings
  */
 @Service
 public class UserService extends ServiceSupport {
 	public void addUser(User user) {
-		runUpdate("INSERT INTO users (id, username, password, name, email)"
-				+ " VALUES ('" + user.getId() + "','" + user.getUsername() + 
-				"','" + user.getPassword() + "','" + user.getName() + "','" + user.getEmail() + "')");
+		String query = "INSERT INTO users (id, username, password, name, email) VALUES (?, ?, ?, ?, ?)";
+		runUpdate(query, ps -> {
+			ps.setString(1, user.getId());
+			ps.setString(2, user.getUsername());
+			ps.setString(3, user.getPassword());
+			ps.setString(4, user.getName());
+			ps.setString(5, user.getEmail());
+			return ps;
+		});
 	}
 
 	public User findByUsername(String username) {
-		Set<User> users = runQuery("SELECT * FROM users WHERE username = '" + username + "'", (rs) ->
+		String query = "SELECT * FROM users WHERE username = ?";
+		Set<User> users = runQuery(query, ps -> {
+			ps.setString(1, username);
+			return ps;
+		}, (rs) ->
 			new User(rs.getString(1), rs.getString(4), rs.getString(5),
 				rs.getString(2), rs.getString(3), rs.getBoolean(6)));
 		return users.isEmpty() ? null : users.iterator().next();
 	}
 
 	public User findByUsernameAndPassword(String username, String password) {
-		Set<User> users = runQuery("SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'", (rs) ->
+		String query = "SELECT * FROM users WHERE username = ? AND password = ?";
+		Set<User> users = runQuery(query, ps -> {
+			ps.setString(1, username);
+			ps.setString(2, password);
+			return ps;
+		}, (rs) ->
 			new User(rs.getString(1), rs.getString(4), rs.getString(5),
 				rs.getString(2), rs.getString(3), rs.getBoolean(6)));
 		return users.isEmpty() ? null : users.iterator().next();
@@ -54,15 +65,29 @@ public class UserService extends ServiceSupport {
 	}
 
 	public void updateUser(User user) {
-		runUpdate("UPDATE users SET name = '" + user.getName() + "', email = '" + user.getEmail() + "' "+
-					"WHERE id = '" + user.getId() + "'");
+		String query = "UPDATE users SET name = ?, email = ? WHERE id = ?";
+		runUpdate(query, ps -> {
+			ps.setString(1, user.getName());
+			ps.setString(2, user.getEmail());
+			ps.setString(3, user.getId());
+			return ps;
+		});
 	}
 
 	public void updateUserPassword(User user) {
-		runUpdate("UPDATE users SET password = '" + user.getPassword() + "' WHERE id = '" + user.getId() + "'");
+		String query = "UPDATE users SET password = ? WHERE id = ?";
+		runUpdate(query, ps -> {
+			ps.setString(1, user.getPassword());
+			ps.setString(2, user.getId());
+			return ps;
+		});
 	}
 
 	public void removeUser(String username) {
-		runUpdate("DELETE FROM users WHERE username = '" + username + "'");
+		String query = "DELETE FROM users WHERE username = ?";
+		runUpdate(query, ps -> {
+			ps.setString(1, username);
+			return ps;
+		});
 	}
 }
