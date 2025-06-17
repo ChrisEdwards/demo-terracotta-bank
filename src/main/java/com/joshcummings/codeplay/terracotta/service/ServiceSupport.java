@@ -45,6 +45,10 @@ public abstract class ServiceSupport {
 	}
 
 	public Integer count(String tableName) {
+		// Validate table name to prevent SQL injection through tableName parameter
+		if (!isValidTableName(tableName)) {
+			throw new IllegalArgumentException("Invalid table name: " + tableName);
+		}
 		return runQuery("SELECT count(*) FROM " + tableName,
 				(rs) -> {
 					try {
@@ -53,6 +57,18 @@ public abstract class ServiceSupport {
 						throw new IllegalStateException(e);
 					}
 				}).iterator().next();
+	}
+	
+	/**
+	 * Validates that a table name contains only alphanumeric characters and underscores
+	 * to prevent SQL injection attacks.
+	 * 
+	 * @param tableName the name of the table to validate
+	 * @return true if the table name is valid, false otherwise
+	 */
+	private boolean isValidTableName(String tableName) {
+		// Table names should only contain alphanumeric characters and underscores
+		return tableName != null && tableName.matches("^[a-zA-Z0-9_]+$");
 	}
 
 	public int runUpdate(String query) {
