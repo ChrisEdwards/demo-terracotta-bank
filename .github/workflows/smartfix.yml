@@ -58,7 +58,7 @@ jobs:
         uses: Contrast-Security-OSS/contrast-ai-smartfix-action@main
         with:
           # --- Max Open PRs ---
-          max_open_prs: 1
+          max_open_prs: 5
           # --- Base Branch ---
           base_branch: main
           # --- Build Command ---
