@@ -23,6 +23,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 /**
  * This filter makes Terracotta Bank vulnerable to CLRF injection because
@@ -45,12 +46,29 @@ public class RequestClassificationFilter implements Filter {
 			throws IOException, ServletException {
 
 		String classification = req.getParameter("c");
-		if ( resp instanceof HttpServletResponse ) {
+		if ( resp instanceof HttpServletResponse && classification != null ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
-			response.setHeader("X-Terracotta-Classification", classification);
+			response.setHeader("X-Terracotta-Classification", sanitizeHeaderValue(classification));
 		}
 
 		chain.doFilter(req, resp);
+	}
+	
+	/**
+	 * Sanitize a header value to prevent header injection attacks.
+	 * This method removes all CR, LF, and other control characters that could be used for header splitting.
+	 *
+	 * @param value The header value to sanitize
+	 * @return A sanitized header value safe for inclusion in HTTP headers
+	 */
+	private String sanitizeHeaderValue(String value) {
+		if (value == null) {
+			return null;
+		}
+		// Remove CR, LF, and other control characters that could be used for header splitting
+		// RFC 7230 defines header fields as consisting of a field name, a colon, and a field value
+		// Field values may contain any visible ASCII character and spaces, but not control characters
+		return Pattern.compile("[\r\n\t\f\u000B]|[\u0000-\u001F\u007F]").matcher(value).replaceAll("");
 	}
 
 	@Override
