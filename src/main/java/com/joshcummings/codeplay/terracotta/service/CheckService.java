@@ -54,12 +54,26 @@ public class CheckService extends ServiceSupport {
 	}
 
 	public void updateCheckImagesBulk(String checkNumber, InputStream is) {
+		// Validate the check number first
+		if (!isValidCheckNumber(checkNumber)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+		
 		try (ZipInputStream zis = new ZipInputStream(is)) {
 			ZipEntry ze;
-			while ( (ze = zis.getNextEntry()) != null ) {
+			while ((ze = zis.getNextEntry()) != null) {
 				try {
-					updateCheckImage(checkNumber + "/" + ze.getName(), zis);
-				} catch ( Exception e ) {
+					// Extract just the filename from the ZIP entry to avoid path traversal
+					String entryName = new File(ze.getName()).getName();
+					
+					// Validate the entry name
+					if (entryName.isEmpty() || entryName.contains("/") || 
+					    entryName.contains("\\") || entryName.contains("..")) {
+						continue; // Skip invalid entries
+					}
+					
+					updateCheckImage(checkNumber + "/" + entryName, zis);
+				} catch (Exception e) {
 					e.printStackTrace(); // try to upload the other ones
 				}
 			}
@@ -70,29 +84,88 @@ public class CheckService extends ServiceSupport {
 
 	public void updateCheckImage(String checkNumber, InputStream is) {
 		try {
-			String location = new URI(CHECK_IMAGE_LOCATION + "/" + checkNumber).normalize().toString();
-			try ( FileOutputStream fos = new FileOutputStream(location) ) {
+			// Validate the check number first
+			if (!isValidCheckNumber(checkNumber)) {
+				throw new IllegalArgumentException("Invalid check number format");
+			}
+			
+			File checkImageFile = new File(CHECK_IMAGE_LOCATION, checkNumber);
+			
+			// Ensure the target directory exists
+			File parentDir = checkImageFile.getParentFile();
+			if (!parentDir.exists()) {
+				parentDir.mkdirs();
+			}
+			
+			// Validate the canonical path to ensure it's within the expected directory
+			File checkImageDir = new File(CHECK_IMAGE_LOCATION).getCanonicalFile();
+			File requestedFile = checkImageFile.getCanonicalFile();
+			
+			if (!requestedFile.getPath().startsWith(checkImageDir.getPath())) {
+				throw new IllegalArgumentException("Access to the requested file is not allowed");
+			}
+			
+			try (FileOutputStream fos = new FileOutputStream(requestedFile)) {
 				byte[] b = new byte[1024];
 				int read;
-				while ( ( read = is.read(b) ) != -1 ) {
+				while ((read = is.read(b)) != -1) {
 					fos.write(b, 0, read);
 				}
-			} catch ( IOException e ) {
+			} catch (IOException e) {
 				throw new IllegalArgumentException(e);
 			}
-		} catch ( URISyntaxException e ) {
+		} catch (IOException e) {
 			throw new IllegalArgumentException(e);
 		}
 	}
 	
+	/**
+	 * Validates if a check number contains path traversal attempts
+	 * 
+	 * @param checkNumber the check number to validate
+	 * @return true if the check number is valid, false otherwise
+	 */
+	private boolean isValidCheckNumber(String checkNumber) {
+		// Check for null or empty
+		if (checkNumber == null || checkNumber.isEmpty()) {
+			return false;
+		}
+		
+		// Check for path traversal characters
+		if (checkNumber.contains("/") || checkNumber.contains("\\") || 
+		    checkNumber.contains("..") || checkNumber.contains(":")) {
+			return false;
+		}
+		
+		// Additional validation could be added here such as limiting to 
+		// alphanumeric characters, size limits, etc.
+		return true;
+	}
+	
 	public void findCheckImage(String checkNumber, OutputStream os) {
-		try ( FileInputStream fis = new FileInputStream(CHECK_IMAGE_LOCATION + "/" + checkNumber) ) {
-			byte[] b = new byte[1024];
-			int read;
-			while ( ( read = fis.read(b) ) != -1 ) {
-				os.write(b, 0, read);
+		if (!isValidCheckNumber(checkNumber)) {
+			throw new IllegalArgumentException("Invalid check number format");
+		}
+
+		try {
+			File checkImageFile = new File(CHECK_IMAGE_LOCATION, checkNumber);
+			
+			// Validate the canonical path to ensure it's within the expected directory
+			File checkImageDir = new File(CHECK_IMAGE_LOCATION).getCanonicalFile();
+			File requestedFile = checkImageFile.getCanonicalFile();
+			
+			if (!requestedFile.getPath().startsWith(checkImageDir.getPath())) {
+				throw new IllegalArgumentException("Access to the requested file is not allowed");
 			}
-		} catch ( IOException e ) {
+			
+			try (FileInputStream fis = new FileInputStream(requestedFile)) {
+				byte[] b = new byte[1024];
+				int read;
+				while ((read = fis.read(b)) != -1) {
+					os.write(b, 0, read);
+				}
+			}
+		} catch (IOException e) {
 			throw new IllegalArgumentException(e);
 		}
 	}
