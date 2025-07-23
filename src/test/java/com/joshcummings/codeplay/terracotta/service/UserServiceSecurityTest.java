@@ -17,6 +17,7 @@ package com.joshcummings.codeplay.terracotta.service;
 
 import com.joshcummings.codeplay.terracotta.model.User;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -56,6 +57,17 @@ public class UserServiceSecurityTest {
         }
     }
     
+    @AfterMethod
+    public void tearDown() throws SQLException {
+        // Clean up the database after each test
+        try (Connection conn = DriverManager.getConnection(DATABASE_URL, "user", "password");
+             PreparedStatement ps = conn.prepareStatement("DROP TABLE users")) {
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            // Ignore errors if table doesn't exist
+        }
+    }
+    
     @Test
     public void testFindByUsernameAndPassword_ValidCredentials() {
         // Test a successful login with valid credentials
@@ -76,8 +88,8 @@ public class UserServiceSecurityTest {
     @Test
     public void testFindByUsernameAndPassword_SQLInjection() {
         // Test attempt at SQL injection should fail
-        // The string "' OR '1'='1" is a common SQL injection attack
-        User user = userService.findByUsernameAndPassword("testuser", "' OR '1'='1");
+        // The string "\' OR \'1\'=\'1" is a common SQL injection attack
+        User user = userService.findByUsernameAndPassword("testuser", "\' OR \'1\'=\'1");
         
         Assert.assertNull(user, "SQL injection attack should not succeed");
     }
@@ -85,8 +97,55 @@ public class UserServiceSecurityTest {
     @Test
     public void testFindByUsernameAndPassword_SQLInjectionInUsername() {
         // Test attempt at SQL injection in username field should fail
-        User user = userService.findByUsernameAndPassword("' OR '1'='1", "password");
+        User user = userService.findByUsernameAndPassword("\' OR \'1\'=\'1", "password");
         
         Assert.assertNull(user, "SQL injection attack in username should not succeed");
+    }
+    
+    @Test
+    public void testFindByUsername_ValidUsername() {
+        // Test finding a user by valid username
+        User user = userService.findByUsername("testuser");
+        
+        Assert.assertNotNull(user, "User should be found with valid username");
+        Assert.assertEquals(user.getUsername(), "testuser");
+    }
+    
+    @Test
+    public void testFindByUsername_SQLInjection() {
+        // Test attempt at SQL injection should fail
+        User user = userService.findByUsername("\' OR \'1\'=\'1");
+        
+        Assert.assertNull(user, "SQL injection attack should not succeed in findByUsername");
+    }
+    
+    @Test
+    public void testUpdateUser_ValidUser() throws SQLException {
+        // Create a user to update
+        User user = userService.findByUsername("testuser");
+        user.setName("Updated Name");
+        user.setEmail("updated@example.com");
+        
+        // Update the user
+        userService.updateUser(user);
+        
+        // Check if the user was updated correctly
+        User updatedUser = userService.findByUsername("testuser");
+        Assert.assertEquals(updatedUser.getName(), "Updated Name");
+        Assert.assertEquals(updatedUser.getEmail(), "updated@example.com");
+    }
+    
+    @Test
+    public void testUpdateUserPassword_ValidUser() throws SQLException {
+        // Create a user to update
+        User user = userService.findByUsername("testuser");
+        user.setPassword("newpassword");
+        
+        // Update the user's password
+        userService.updateUserPassword(user);
+        
+        // Check if the password was updated correctly by trying to log in with new password
+        User loggedInUser = userService.findByUsernameAndPassword("testuser", "newpassword");
+        Assert.assertNotNull(loggedInUser, "User should be found with updated password");
     }
 }
