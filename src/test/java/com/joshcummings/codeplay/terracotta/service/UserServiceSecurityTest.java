@@ -89,4 +89,39 @@ public class UserServiceSecurityTest {
         
         Assert.assertNull(user, "SQL injection attack in username should not succeed");
     }
+    
+    @Test
+    public void testAddUser_SQLInjection() {
+        // Test that SQL injection in user fields doesn't cause unexpected behavior
+        String maliciousId = "malicious-id";
+        String maliciousUsername = "') DELETE FROM users; --";
+        String maliciousPassword = "password";
+        String maliciousName = "Malicious User";
+        String maliciousEmail = "malicious@example.com";
+        
+        User maliciousUser = new User(maliciousId, maliciousUsername, maliciousPassword, maliciousName, maliciousEmail);
+        
+        try {
+            // The operation should succeed without any SQL errors
+            userService.addUser(maliciousUser);
+            
+            // Verify the user was added correctly
+            User retrievedUser = userService.findByUsername(maliciousUsername);
+            
+            Assert.assertNotNull(retrievedUser, "User with malicious data should be retrievable");
+            Assert.assertEquals(retrievedUser.getId(), maliciousId, "User ID should match");
+            Assert.assertEquals(retrievedUser.getUsername(), maliciousUsername, "Username should match");
+            
+            // Verify that other users still exist (no deletion occurred)
+            User originalUser = userService.findByUsername("testuser");
+            Assert.assertNotNull(originalUser, "Original test user should still exist");
+        } finally {
+            // Clean up the malicious user
+            try {
+                userService.removeUser(maliciousUsername);
+            } catch (Exception e) {
+                // Ignore cleanup errors
+            }
+        }
+    }
 }
