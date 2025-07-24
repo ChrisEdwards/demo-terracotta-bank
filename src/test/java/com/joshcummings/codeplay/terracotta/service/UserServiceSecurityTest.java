@@ -24,6 +24,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.ResultSet;
 
 /**
  * This class tests that the UserService is protected against SQL injection attacks.
@@ -40,6 +41,12 @@ public class UserServiceSecurityTest {
         // Create a test user for our tests
         try (Connection conn = DriverManager.getConnection(DATABASE_URL, "user", "password");
              PreparedStatement ps = conn.prepareStatement("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50), name VARCHAR(50), email VARCHAR(50), username VARCHAR(50), password VARCHAR(50), is_employee BOOLEAN)")) {
+            ps.executeUpdate();
+        }
+        
+        // Delete any existing users
+        try (Connection conn = DriverManager.getConnection(DATABASE_URL, "user", "password");
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM users")) {
             ps.executeUpdate();
         }
         
@@ -88,5 +95,65 @@ public class UserServiceSecurityTest {
         User user = userService.findByUsernameAndPassword("' OR '1'='1", "password");
         
         Assert.assertNull(user, "SQL injection attack in username should not succeed");
+    }
+    
+    @Test
+    public void testAddUser_NoSQLInjection() throws SQLException {
+        // Test that addUser method is secure against SQL injection
+        String maliciousId = "1'; DELETE FROM users; --";
+        User maliciousUser = new User(maliciousId, "hacker", "password", "Hacker", "hacker@example.com");
+        
+        // This should not cause any error or SQL injection
+        userService.addUser(maliciousUser);
+        
+        // Verify that our original test user still exists (it would be deleted if the injection worked)
+        try (Connection conn = DriverManager.getConnection(DATABASE_URL, "user", "password");
+             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM users WHERE username = ?")) {
+            ps.setString(1, "testuser");
+            ResultSet rs = ps.executeQuery();
+            rs.next();
+            int count = rs.getInt(1);
+            Assert.assertEquals(count, 1, "Original test user should still exist after SQL injection attempt");
+        }
+        
+        // Verify that the malicious user was added with the malicious ID as-is, not as an injection
+        try (Connection conn = DriverManager.getConnection(DATABASE_URL, "user", "password");
+             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM users WHERE id = ?")) {
+            ps.setString(1, maliciousId);
+            ResultSet rs = ps.executeQuery();
+            rs.next();
+            int count = rs.getInt(1);
+            Assert.assertEquals(count, 1, "Malicious user ID should be stored as literal string, not executed as SQL");
+        }
+    }
+    
+    @Test
+    public void testUpdateUser_NoSQLInjection() throws SQLException {
+        // Test that updateUser method is secure against SQL injection
+        User normalUser = userService.findByUsername("testuser");
+        Assert.assertNotNull(normalUser, "Test user should exist");
+        
+        // Create a user with the same ID but malicious data
+        User maliciousUser = new User(
+            normalUser.getId(), 
+            normalUser.getUsername(), 
+            normalUser.getPassword(), 
+            "Hacked Name', email='hacked@example.com' WHERE 1=1; --", 
+            "hacker@example.com"
+        );
+        
+        // This should not cause SQL injection
+        userService.updateUser(maliciousUser);
+        
+        // Verify that the injection didn't work by checking that only one user's name was updated
+        try (Connection conn = DriverManager.getConnection(DATABASE_URL, "user", "password");
+             PreparedStatement ps = conn.prepareStatement("SELECT name FROM users WHERE id = ?")) {
+            ps.setString(1, normalUser.getId());
+            ResultSet rs = ps.executeQuery();
+            rs.next();
+            String name = rs.getString(1);
+            Assert.assertEquals(name, "Hacked Name', email='hacked@example.com' WHERE 1=1; --", 
+                "The name should be stored exactly as provided, not executed as SQL");
+        }
     }
 }
