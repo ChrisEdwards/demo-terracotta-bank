@@ -89,4 +89,21 @@ public class UserServiceSecurityTest {
         
         Assert.assertNull(user, "SQL injection attack in username should not succeed");
     }
+    
+    @Test
+    public void testFindByUsername_Normal() {
+        // Test a normal username lookup
+        User user = userService.findByUsername("testuser");
+        
+        Assert.assertNotNull(user, "User should be found with valid username");
+        Assert.assertEquals(user.getUsername(), "testuser");
+    }
+    
+    @Test
+    public void testFindByUsername_SQLInjection() {
+        // Test that SQL injection attempt fails
+        User user = userService.findByUsername("' OR '1'='1");
+        
+        Assert.assertNull(user, "SQL injection attack in findByUsername should not succeed");
+    }
 }

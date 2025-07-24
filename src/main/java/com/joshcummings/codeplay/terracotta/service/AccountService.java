@@ -40,8 +40,12 @@ public class AccountService extends ServiceSupport {
 	}
 	
 	public Set<Account> findByUsername(String username) {
-		Set<Account> accounts = runQuery("SELECT accounts.* FROM accounts, users WHERE users.username = '" + username + "' AND accounts.owner_id = users.id", (rs) ->
-			new Account(rs.getString(1), new BigDecimal(rs.getString(2)),
+		Set<Account> accounts = runQuery("SELECT accounts.* FROM accounts, users WHERE users.username = ? AND accounts.owner_id = users.id",
+			ps -> {
+				ps.setString(1, username);
+				return ps;
+			},
+			(rs) -> new Account(rs.getString(1), new BigDecimal(rs.getString(2)),
 					rs.getLong(3), rs.getString(4)));
 		return accounts;
 	}
