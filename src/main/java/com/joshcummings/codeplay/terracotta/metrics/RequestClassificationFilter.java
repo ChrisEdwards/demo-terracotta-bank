@@ -25,9 +25,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * This filter makes Terracotta Bank vulnerable to CLRF injection because
- * it doesn't validate and encode {@code classification} before including
- * it as a header.
+ * This filter sets the X-Terracotta-Classification header based on the 'c' parameter.
+ * The classification value is sanitized to prevent CRLF injection attacks.
  *
  * @author Josh Cummings
  */
@@ -45,9 +44,11 @@ public class RequestClassificationFilter implements Filter {
 			throws IOException, ServletException {
 
 		String classification = req.getParameter("c");
-		if ( resp instanceof HttpServletResponse ) {
+		if ( classification != null && resp instanceof HttpServletResponse ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
-			response.setHeader("X-Terracotta-Classification", classification);
+			// Sanitize classification to prevent header injection by removing CRLF characters
+			String sanitized = classification.replaceAll("[\r\n]", "");
+			response.setHeader("X-Terracotta-Classification", sanitized);
 		}
 
 		chain.doFilter(req, resp);
