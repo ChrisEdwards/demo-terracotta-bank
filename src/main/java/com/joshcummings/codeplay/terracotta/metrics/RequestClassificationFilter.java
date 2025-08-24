@@ -23,6 +23,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 /**
  * This filter makes Terracotta Bank vulnerable to CLRF injection because
@@ -45,12 +46,27 @@ public class RequestClassificationFilter implements Filter {
 			throws IOException, ServletException {
 
 		String classification = req.getParameter("c");
-		if ( resp instanceof HttpServletResponse ) {
+		if ( resp instanceof HttpServletResponse && classification != null ) {
 			HttpServletResponse response = (HttpServletResponse) resp;
-			response.setHeader("X-Terracotta-Classification", classification);
+			response.setHeader("X-Terracotta-Classification", validateHeaderValue(classification));
 		}
 
 		chain.doFilter(req, resp);
+	}
+	
+	/**
+	 * Validates and sanitizes a header value to prevent header injection attacks.
+	 * Removes CR, LF, and other control characters that could be used for CRLF injection.
+	 * 
+	 * @param value The header value to sanitize
+	 * @return A sanitized header value safe to use in HTTP headers
+	 */
+	private String validateHeaderValue(String value) {
+		if (value == null) {
+			return "";
+		}
+		// Remove CR, LF, and other control characters
+		return value.replaceAll("[\r\n\f\t]|[\u0000-\u001F\u007F-\u009F]", "");
 	}
 
 	@Override
